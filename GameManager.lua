@@ -12,9 +12,10 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config             = require(Modules:WaitForChild("Config"))
 local DataPersistence    = require(Modules:WaitForChild("DataPersistence"))
 local EliminationManager = require(Modules:WaitForChild("EliminationManager"))
-
--- إضافة سطر نظام حماية الهوية (IdentityProtector)
 local IdentityProtector  = require(Modules:WaitForChild("IdentityProtector"))
+
+-- ربط نظام الإضاءة (LightingManager)
+local LightingManager    = require(Modules:WaitForChild("LightingManager"))
 
 -- وحدات مستقبلية (موقوفة حالياً)
 -- local RoleDistributor = require(Modules:WaitForChild("RoleDistributor"))
@@ -52,6 +53,10 @@ end
 -- [4] تفاصيل مرحلة الليل
 function GameManager.RunNightPhase()
     print("🌙 بدأ الليل.. المافيا تتحرك الآن.")
+    
+    -- تفعيل إضاءة الليل (الانتقال خلال 5 ثوانٍ)
+    LightingManager.SetNight(5)
+    
     task.wait(Config.TimeSettings.NightDuration)
 end
 
@@ -64,12 +69,19 @@ end
 -- [6] تفاصيل مرحلة النهار
 function GameManager.RunDayPhase()
     print("☀️ بدأ النهار.. وقت النقاش والتصويت.")
+    
+    -- إعادة إضاءة النهار (الانتقال خلال 5 ثوانٍ)
+    LightingManager.SetDay(5)
+    
     task.wait(Config.TimeSettings.DayDuration)
 end
 
 -- [7] تشغيل السيرفر (Initialization)
 function GameManager.Initialize()
     print("⚙️ يتم الآن تهيئة سيرفر مافيا سيتي...")
+
+    -- تهيئة الإضاءة الافتراضية
+    LightingManager.Init()
 
     -- تفعيل نظام استقبال اللاعبين وحفظ بياناتهم وتأمين هوياتهم
     IdentityProtector.Init() 
