@@ -1,10 +1,9 @@
 -- Modules/RoundCycleManager.lua
--- نظام إدارة دورة الجولات (RoundCycleManager)
--- الوظيفة: المايسترو المسؤول عن تعاقب الليل والنهار، الإضاءة، وتوجيه الأدوار
+-- نظام إدارة دورة الجولات (RoundCycleManager) - النسخة المحدثة والمربوطة بنظام الجلوس
 
 local RoundCycleManager = {}
 
--- [1] الخدمات والاعتمادات (Dependencies)
+-- [1] الخدمات والاعتمادات (Services and Dependencies)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
@@ -13,92 +12,73 @@ local LightingManager = require(Modules:WaitForChild("LightingManager"))
 local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
 local RoleManager = require(Modules:WaitForChild("RoleManager"))
 
--- [2] إعدادات المراحل (Phase Settings)
-local NIGHT_DURATION = 30 -- مدة الليل (30 ثانية)
-local DAY_DURATION = 60   -- مدة النهار (60 ثانية)
+-- إعدادات الوقت (Time Settings)
+local NIGHT_DURATION = 30
+local DAY_DURATION = 60
 
--- [3] دالة تشغيل مرحلة الليل (Night Phase)
+-- [2] دالة مرحلة الليل (Night Phase)
 function RoundCycleManager.StartNightPhase()
     print("🌙 بدأت مرحلة الليل...")
     
-    -- تحويل الإضاءة لمنتصف الليل
+    -- تغيير الإضاءة وتنبيه اللاعبين
     LightingManager.SetNight(5)
-    
-    -- تنبيه اللاعبين (بث عام وخاص)
     NotificationManager.BroadcastRoundEvent("حل الليل على المدينة.. المافيا تتحرك الآن.", true)
-    
-    -- توجيه الأدوار الليلية (أمثلة)
-    for _, player in ipairs(Players:GetPlayers()) do
-        local role = player:GetAttribute("CurrentRole")
-        if role == "Mafia" or role == "Godfather" then
-            NotificationManager.SendPrivate(player, "إختر ضحيتك الآن مع بقية أفراد المافيا.", "RED")
-            -- هنا يتم تفعيل واجهة اختيار الضحية (MafiaTargetUI)
-        elseif role == "Doctor" then
-            NotificationManager.SendPrivate(player, "إختر شخصاً واحداً لحمايته الليلة.", "SUCCESS")
-        end
-    end
     
     task.wait(NIGHT_DURATION)
 end
 
--- [4] دالة تشغيل مرحلة النهار (Day Phase)
+-- [3] دالة تشغيل مرحلة النهار (Day Phase) - المحدثة بالربط مع نظام الجلوس
 function RoundCycleManager.StartDayPhase()
     print("☀️ بدأت مرحلة النهار...")
+
+    -- 1. استدعاء نظام الجلوس (SeatingSystem)
+    local SeatingSystem = require(Modules:WaitForChild("SeatingSystem"))
+    local alivePlayers = {}
     
-    -- تحويل الإضاءة للظهيرة
+    -- جلب اللاعبين الأحياء فقط للمشاركة في طاولة النقاش
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p:GetAttribute("IsAlive") ~= false then
+            table.insert(alivePlayers, p)
+        end
+    end
+    
+    -- تنفيذ عملية الجلوس الرياضية حول الطاولة
+    SeatingSystem.ArrangePlayers(alivePlayers)
+
+    -- 2. تحويل الإضاءة للظهيرة (Daylight)
     LightingManager.SetDay(5)
     
-    -- تنبيه اللاعبين
-    NotificationManager.BroadcastRoundEvent("أشرقت الشمس.. ابدأوا النقاش لكشف المتسللين.", false)
+    -- 3. تنبيه اللاعبين ببدء النقاش وكشف القتلة
+    NotificationManager.BroadcastRoundEvent("أشرقت الشمس.. الجميع حول الطاولة الآن للنقاش.", false)
     
-    -- هنا يتم فتح بوابة النقاش العام وتفعيل نظام التصويت (VotingSystem)
-    
+    -- 4. انتظار مدة النهار المحددة للنقاش والتصويت
     task.wait(DAY_DURATION)
-end
-
--- [5] تهيئة الجولة الجديدة (Round Setup)
-function RoundCycleManager.PrepareNewRound()
-    print("🎲 جاري تحضير جولة جديدة وتوزيع الأدوار...")
     
-    local activePlayers = Players:GetPlayers()
-    if #activePlayers >= 4 then
-        -- توزيع الأدوار بناءً على نظام الاحتمالات (60/40)
-        RoleManager.AssignRoles(activePlayers)
-        
-        NotificationManager.BroadcastRoundEvent("تم توزيع الأدوار السرية.. استعدوا!", false)
-        return true
-    else
-        print("⚠️ لا يوجد لاعبين كافيين لبدء الجولة.")
-        return false
-    end
+    -- 5. تنظيف المقاعد وتحرير اللاعبين بعد انتهاء النهار
+    SeatingSystem.ClearSeats()
 end
 
--- [6] محرك اللعبة المستمر (RunGameLoop)
+-- [4] المحرك الرئيسي للجولة (Main Game Engine)
 function RoundCycleManager.RunGameLoop()
-    print("🚀 محرك الجولات قيد التشغيل...")
+    print("🚀 المحرك الرئيسي للجولات قيد التشغيل...")
     
     while true do
-        -- فحص وجود لاعبين قبل البدء
+        -- التحقق من توفر الحد الأدنى من اللاعبين (4 لاعبين)
         if #Players:GetPlayers() >= 4 then
-            -- 1. تجهيز الجولة
-            if RoundCycleManager.PrepareNewRound() then
-                
-                -- 2. دورة الليل
-                RoundCycleManager.StartNightPhase()
-                
-                -- 3. دورة النهار
-                RoundCycleManager.StartDayPhase()
-                
-                -- 4. حسم النتائج (هل فازت المافيا أم المواطنون؟)
-                -- يتم استدعاء EliminationManager.CheckWin() هنا
-            end
+            -- توزيع الأدوار عشوائياً (Mafia, Judge, etc.)
+            RoleManager.AssignRoles(Players:GetPlayers())
+            
+            -- تعاقب مراحل اللعبة
+            RoundCycleManager.StartNightPhase()
+            RoundCycleManager.StartDayPhase()
+            
+            -- يمكن إضافة EliminationManager.CheckWinCondition() هنا لاحقاً
         else
-            -- انتظار لاعبين إذا قل العدد عن 4
             task.wait(10)
-            print("⏳ في انتظار اكتمال العدد لبدء الجولة...")
+            print("⏳ في انتظار اكتمال العدد (4 لاعبين) لبدء الجولة...")
         end
         
-        task.wait(2) -- فاصل بسيط بين الدورات
+        task.wait(2) -- فاصل زمني بسيط بين الجولات
     end
 end
 
