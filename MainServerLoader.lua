@@ -1,47 +1,59 @@
--- MainServerLoader.lua
+-- ServerScriptService/MainServerLoader.lua
 -- Location: ServerScriptService
 -- Role: The Ignition Key (File #27)
--- Summary: This script finalizes the backend by requiring the MainGameEngine 
--- and ensuring all 26 modules are synchronized and ready for players.
+-- Summary: This script finalizes the backend by connecting all modules and engines.
 
-print("----------------------------------------------------------------")
-print("🏙️  MAFIA CITY: BACKEND INITIALIZATION STARTING...")
-print("----------------------------------------------------------------")
-
--- [1] Services & Paths
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
--- [2] Safety Check: Waiting for the Modules Folder
+-- [1] Safety Check: Waiting for the Modules Folder
 local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
 
 if not Modules then
     warn("❌ CRITICAL ERROR: 'Modules' folder not found in ReplicatedStorage!")
-    return
+    return 
 end
 
--- [رابط الكود الأول] - استدعاء واجهة الأدوار
-local RoleUI = require(Modules.RoleUI)
-
--- [3] Linking the Master Engine
+-- [2] Requirements from both codes
+local RoundCycleManager = require(Modules:WaitForChild("RoundCycleManager"))
+local LightingManager = require(Modules:WaitForChild("LightingManager"))
+local RoleUI = require(Modules:WaitForChild("RoleUI"))
 local MainGameEngine = require(Modules:WaitForChild("MainGameEngine"))
 
--- [4] Final Initialization
+-- [3] Initialization Logic (From Code 1)
+print("----------------------------------------------------------------")
+print("⚙️ Server systems are being prepared...")
+
+-- Set the default lighting (daylight)
+LightingManager.Init()
+
+-- Activate the game loop in a separate thread
+task.spawn(function()
+    print("🎮 The Rounds Engine has been successfully launched.")
+    RoundCycleManager.RunGameLoop()
+end)
+
+-- [4] Main Engine Initialization (From Code 2)
+print("----------------------------------------------------------------")
+print("🏙️  MAFIA CITY: BACKEND INITIALIZATION STARTING...")
+print("----------------------------------------------------------------")
+
 local function StartServer()
     local success, err = pcall(function()
-        -- تشغيل المحرك الرئيسي
+        -- Starting the main engine
         MainGameEngine.Init()
     end)
 
     if success then
         print("✅ SUCCESS: Mafia City Backend is now 100% Live!")
-        
-        -- [رابط الكود الأول] - تنفيذ عرض دور العراب عند دخول اللاعب
+
+        -- Implementing the Godfather role display upon player entry (for testing)
         game.Players.PlayerAdded:Connect(function(player)
-            -- يتم عرض بطاقة العراب باللون الأحمر فور دخول اللاعب (للتجربة)
+            -- Wait a brief moment for UI to load
+            task.wait(2)
             RoleUI.ShowRole(player, "Godfather", Color3.fromRGB(255, 0, 0))
         end)
-        
+
         print("🎮 Game State: Waiting for players to start Intermission...")
     else
         warn("⚠️ FAILED to initialize MainGameEngine: " .. tostring(err))
