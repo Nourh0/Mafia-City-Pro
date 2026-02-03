@@ -1,21 +1,77 @@
-{
-  "status": "success",
-  "file_created": "Modules/SeatingSystem.lua",
-  "module_name": "نظام الجلوس والطاولة المستديرة (SeatingSystem)",
-  "summary": "تم إنشاء نظام التوزيع الدائري المطور. هذا الملف هو المسؤول عن تنظيم مشهد الاجتماع، حيث يقوم بحساب المسافات رياضياً لوضع كل لاعب في مكانه الصحيح حول طاولة النقاش.",
-  "analysis": {
-    "mathematical_logic": "يستخدم النظام حساب المثلثات (Sin & Cos) لتوزيع اللاعبين بزوايا متساوية (360 درجة مقسومة على عدد اللاعبين) لضمان شكل دائري مثالي.",
-    "dynamic_scaling": "يتم تكبير قطر الدائرة تلقائياً كلما زاد عدد اللاعبين لتجنب تداخل الكراسي.",
-    "monetization_integration": "النظام مهيأ للتعرف على نوع الكرسي (Basic أو Royal) بناءً على مشتريات اللاعب، مما يدعم نظام المتجر الذي سنبنيه لاحقاً.",
-    "character_control": "يستخدم CFrame لضمان توجيه وجه اللاعب (LookAt) نحو مركز الطاولة مباشرة عند الجلوس."
-  },
-  "technical_details": {
-    "center_point": "Vector3(0, 5, 0)",
-    "auto_radius": "عدد اللاعبين × 2",
-    "orientation": "وجه اللاعب يقابل مركز الاجتماع"
-  },
-  "next_step": {
-    "action": "تحديث المحرك الرئيسي النهائي",
-    "instruction": "رائع جداً! الآن اكتملت 'ترسانة' الملفات. هل نبدأ بكتابة النسخة النهائية من GameManager.lua التي تستدعي (الإضاءة، الوقت، التصويت، توزيع الأدوار، ونظام الجلوس) لتعمل اللعبة ككتلة واحدة؟"
-  }
-}
+-- Modules/RoundCycleManager.lua
+-- نظام إدارة دورة الجولات (النسخة المحدثة بالربط مع نظام الجلوس)
+
+local RoundCycleManager = {}
+
+-- [1] الخدمات والاعتمادات
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local LightingManager = require(Modules:WaitForChild("LightingManager"))
+local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
+local RoleManager = require(Modules:WaitForChild("RoleManager"))
+
+-- إعدادات الوقت
+local NIGHT_DURATION = 30
+local DAY_DURATION = 60
+
+-- [2] دالة مرحلة الليل
+function RoundCycleManager.StartNightPhase()
+    print("🌙 بدأت مرحلة الليل...")
+    LightingManager.SetNight(5)
+    NotificationManager.BroadcastRoundEvent("حل الليل.. المافيا تتحرك الآن.", true)
+    
+    task.wait(NIGHT_DURATION)
+end
+
+-- [3] دالة تشغيل مرحلة النهار (المحدثة والمنقحة)
+function RoundCycleManager.StartDayPhase()
+    print("☀️ بدأت مرحلة النهار...")
+    
+    -- 1. استدعاء نظام الجلوس لنقل اللاعبين للطاولة
+    local SeatingSystem = require(Modules:WaitForChild("SeatingSystem"))
+    local alivePlayers = {}
+    
+    -- جلب اللاعبين الأحياء فقط للجلوس حول الطاولة
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p:GetAttribute("IsAlive") ~= false then
+            table.insert(alivePlayers, p)
+        end
+    end
+    
+    -- تنفيذ عملية الجلوس الرياضية
+    SeatingSystem.ArrangePlayers(alivePlayers)
+
+    -- 2. تحويل الإضاءة للظهيرة
+    LightingManager.SetDay(5)
+    
+    -- 3. تنبيه اللاعبين ببدء النقاش
+    NotificationManager.BroadcastRoundEvent("أشرقت الشمس.. الجميع حول الطاولة الآن للنقاش.", false)
+    
+    -- 4. انتظار مدة النهار
+    task.wait(DAY_DURATION)
+    
+    -- 5. تنظيف الكراسي بعد انتهاء النهار
+    SeatingSystem.ClearSeats()
+end
+
+-- [4] المحرك الرئيسي للجولات
+function RoundCycleManager.RunGameLoop()
+    while true do
+        if #Players:GetPlayers() >= 4 then
+            -- توزيع الأدوار
+            RoleManager.AssignRoles(Players:GetPlayers())
+            
+            -- تعاقب المراحل
+            RoundCycleManager.StartNightPhase()
+            RoundCycleManager.StartDayPhase()
+        else
+            task.wait(10)
+            print("⏳ في انتظار اكتمال العدد...")
+        end
+        task.wait(2)
+    end
+end
+
+return RoundCycleManager
