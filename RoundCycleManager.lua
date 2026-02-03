@@ -1,5 +1,5 @@
 -- Modules/RoundCycleManager.lua
--- RoundCycleManager - النسخة النهائية المحدثة والمربوطة بنظام التصويت والإقصاء
+-- RoundCycleManager - النسخة النهائية المحدثة والمربوطة بنظام التصويت، الإقصاء، والوقت
 
 local RoundCycleManager = {}
 
@@ -11,6 +11,9 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local LightingManager = require(Modules:WaitForChild("LightingManager"))
 local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
 local RoleManager = require(Modules:WaitForChild("RoleManager"))
+
+-- [الربط] استدعاء نظام الوقت
+local TimeSystem = require(Modules:WaitForChild("TimeSystem"))
 
 -- Time Settings
 local NIGHT_DURATION = 30
@@ -24,7 +27,7 @@ function RoundCycleManager.StartNightPhase()
     LightingManager.SetNight(5)
     NotificationManager.BroadcastRoundEvent("Night has fallen on the city... The mafia is on the move now.", true)
 
-    task.wait(NIGHT_DURATION)
+    -- ملاحظة: WaitPhase سيقوم بالانتظار الفعلي بدلاً من task.wait هنا لضمان التزامن
 end
 
 -- [3] Day Phase Function - Updated with the seating, voting, and elimination system
@@ -55,10 +58,12 @@ function RoundCycleManager.StartDayPhase()
     local VotingSystem = require(Modules:WaitForChild("VotingSystem"))
     VotingSystem.StartVoting()
 
-    -- 4. Wait for the specified daytime duration for discussion and voting
-    task.wait(DAY_DURATION)
+    -- [ملاحظة]: تم نقل الانتظار (task.wait) إلى محرك الجولات عبر TimeSystem.WaitPhase
+end
 
-    -- [تم الربط هنا] - الحصول على نتيجة نظام التصويت وتفعيل الإقصاء الفعلي
+-- وظيفة معالجة نتائج التصويت (يتم استدعاؤها بعد انتهاء وقت النهار)
+function RoundCycleManager.ProcessVotingResults()
+    local VotingSystem = require(Modules:WaitForChild("VotingSystem"))
     local victimName = VotingSystem.GetResult()
 
     if victimName then
@@ -75,32 +80,42 @@ function RoundCycleManager.StartDayPhase()
 
             if gameEnded then
                 print("🏁 Game over, stopping rounds.")
-                -- يمكن كسر حلقة اللعبة هنا إذا كانت هذه نهاية المباراة
             end
         end
     else
-        print("⚖️ No one found Victim (Tie or No Votes).")
+        print("⚖️ No one found Victim (Tie or No Votes)")
     end
 
     -- 5. Clean the seats and release the players after the day ends
+    local SeatingSystem = require(Modules:WaitForChild("SeatingSystem"))
     SeatingSystem.ClearSeats()
 end
 
--- [4] Main Game Engine
+-- [4] Main Game Engine (المحدث بنظام الوقت)
 function RoundCycleManager.RunGameLoop()
     print("🚀 Main Game Engine is running...")
 
     while true do
         -- Checking for minimum player availability (4 players)
         if #Players:GetPlayers() >= 4 then
-            -- Randomly assigning roles (Mafia, Judge, etc.)
+            -- توزيع الأدوار عشوائياً عند بداية الجولة
             RoleManager.AssignRoles(Players:GetPlayers())
 
-            -- Game phase sequence
+            -- 1. مرحلة الليل (Night Phase)
             RoundCycleManager.StartNightPhase()
-            RoundCycleManager.StartDayPhase()
+            TimeSystem.WaitPhase("Night")
 
-            -- يمكن إضافة EliminationManager.CheckWinCondition() هنا لاحقاً
+            -- 2. مرحلة الأخبار (News Phase)
+            NotificationManager.BroadcastRoundEvent("The press is publishing last night's news...", false)
+            TimeSystem.WaitPhase("News")
+
+            -- 3. مرحلة النهار (Day Phase)
+            RoundCycleManager.StartDayPhase()
+            TimeSystem.WaitPhase("Day")
+            
+            -- معالجة التصويت بعد انتهاء وقت النهار
+            RoundCycleManager.ProcessVotingResults()
+
         else
             task.wait(10)
             print("⏳ Waiting for the number to reach (4 players) to start the round...")
