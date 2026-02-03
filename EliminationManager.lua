@@ -1,25 +1,94 @@
-[
-  {
-    "status": "success",
-    "file_created": "Modules/EliminationManager.lua",
-    "module_name": "نظام التصفية وحسم الجولات (EliminationManager)",
-    "summary": "تم إنشاء نظام 'حاصد الأرواح' في اللعبة. هذا الملف هو المسؤول عن تنفيذ قرارات القتل أو الإعدام، وتحويل اللاعبين إلى وضع المشاهد (Spectator)، ومراقبة توازن القوى لإعلان الفريق الفائز.",
-    "analysis": {
-      "elimination_logic": {
-        "status_update": "يتم تغيير سمة 'IsAlive' إلى false، مما يمنع اللاعب من المشاركة في التصويت أو الدردشة السرية.",
-        "spectator_mode": "يتم نقل اللاعب برمجياً بعيداً عن طاولة الاجتماع لمنع تداخله مع اللاعبين الأحياء.",
-        "contextual_reasoning": "يدعم أسباباً مختلفة للتصفية (قتل مافيا أو تصويت محكمة) مع رسائل مخصصة لكل حالة."
-      },
-      "win_conditions": {
-        "Mafia_Victory": "تتحقق عند القضاء على جميع المواطنين والقاضي.",
-        "Citizens_Victory": "تتحقق عند كشف وتصفية جميع أعضاء المافيا والزعيم.",
-        "Dynamic_Check": "يتم فحص عدد الأحياء في كل فريق بعد كل عملية تصفية لتحديد مصير الجولة."
-      }
-    },
-    "technical_context": "هذا الملف يربط نظام الجولات (RoundCycleManager) بنهاية اللعبة الفعلية، ويعتمد على 'NotificationManager' لإبلاغ الجميع بالأحداث المأساوية التي تحدث في المدينة.",
-    "next_step": {
-      "action": "إنشاء الملف رقم 23 (ServerInitializer.lua)",
-      "instruction": "برافو! الآن اكتملت كل ميكانيكيات اللعبة (22 ملفاً). هل نبدأ بكتابة 'مشغل السيرفر' (ServerInitializer.lua) الذي سيقوم باستدعاء كل هذه الوحدات وربطها بحدث دخول اللاعبين (PlayerAdded) لتبدأ اللعبة فعلياً؟"
-    }
-  }
-]
+-- Modules/EliminationManager.lua
+-- نظام التصفية وحسم الجولات (EliminationManager)
+
+local EliminationManager = {}
+
+-- الخدمات
+local Players = game:GetService("Players")
+
+-- استدعاء الوحدات الأخرى (يفترض وجودها في نفس المجلد)
+-- local NotificationManager = require(script.Parent.NotificationManager)
+-- local Config = require(script.Parent.Config)
+
+-- [1] دالة تصفية اللاعب (EliminatePlayer)
+function EliminationManager.EliminatePlayer(player, reason)
+    if not player then return end
+    
+    -- تحديث الحالة إلى "ميت" برمجياً
+    player:SetAttribute("IsAlive", false)
+    
+    -- إرسال رسالة مخصصة بناءً على سبب الوفاة
+    local message = ""
+    if reason == "Mafia" then
+        message = "💀 تم العثور على " .. player.Name .. " مقتولاً في منزله.. يبدو أنها المافيا!"
+    elseif reason == "Vote" then
+        message = "⚖️ قرر الشعب إعدام " .. player.Name .. " بعد جلسة تصويت طويلة."
+    else
+        message = "👻 " .. player.Name .. " غادر عالم الأحياء لأسباب غامضة."
+    end
+    
+    print(message)
+    -- NotificationManager.Broadcast(message) -- تفعيل هذا السطر عند جاهزية نظام التنبيهات
+
+    -- تحويل اللاعب إلى وضع المشاهد
+    EliminationManager.HandleSpectatorMode(player)
+    
+    -- فحص شروط الفوز فوراً بعد كل تصفية
+    EliminationManager.CheckWinConditions()
+end
+
+-- [2] نظام وضع المشاهد (Spectator Mode)
+function EliminationManager.HandleSpectatorMode(player)
+    local character = player.Character
+    if character then
+        -- جعل الشخصية شفافة أو نقلها لمكان بعيد (مقبرة اللاعبين أو غرفة المشاهدة)
+        character:MoveTo(Vector3.new(0, 100, 0)) -- مثال لنقله لمنطقة مرتفعة
+        
+        -- منع اللاعب من التفاعل مع الأحياء (إخفاء خيارات التصويت وغيرها)
+        player:SetAttribute("CanVote", false)
+        player:SetAttribute("CanChatInPublic", false)
+    end
+    print("🎥 " .. player.Name .. " انتقل الآن إلى وضع المشاهد.")
+end
+
+-- [3] فحص شروط الفوز (Win Conditions)
+function EliminationManager.CheckWinConditions()
+    local aliveMafia = 0
+    local aliveCitizens = 0
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p:GetAttribute("IsAlive") == true then
+            local role = p:GetAttribute("Role") -- يفترض أن الدور مسجل مسبقاً
+            
+            -- تصنيف الأدوار (يمكن ربطها بملف Config لاحقاً)
+            if role == "Mafia" or role == "Godfather" then
+                aliveMafia = aliveMafia + 1
+            else
+                aliveCitizens = aliveCitizens + 1
+            end
+        end
+    end
+    
+    -- حسم الجولة
+    if aliveMafia == 0 then
+        EliminationManager.DeclareVictory("Citizens")
+    elseif aliveMafia >= aliveCitizens then
+        EliminationManager.DeclareVictory("Mafia")
+    end
+end
+
+-- [4] إعلان الفريق الفائز
+function EliminationManager.DeclareVictory(winner)
+    if winner == "Citizens" then
+        print("🎉 النصر للمواطنين! تم تطهير المدينة من المافيا.")
+        -- NotificationManager.Broadcast("🏆 فاز المواطنون!")
+    elseif winner == "Mafia" then
+        print("🌑 انتصرت المافيا! لقد سيطروا على المدينة بالكامل.")
+        -- NotificationManager.Broadcast("🏆 فازت المافيا!")
+    end
+    
+    -- هنا يتم استدعاء نظام إعادة تشغيل الجولة
+    -- RoundCycleManager.EndRound()
+end
+
+return EliminationManager
