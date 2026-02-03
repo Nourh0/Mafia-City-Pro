@@ -1,17 +1,22 @@
 -- GameManager.lua
 -- الدور: المحرك الرئيسي (The Engine)
--- الموقع: Project Root (يُفضل وضعه في ServerScriptService)
+-- الموقع: ServerScriptService
 
 local GameManager = {}
 
 -- [1] استدعاء كافة الوحدات (Modules)
--- ملاحظة: تأكد من أن مجلد Modules موجود في ReplicatedStorage أو نفس مكان السكريبت
-local Modules = game:GetService("ReplicatedStorage"):WaitForChild("Modules")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Modules = ReplicatedStorage:WaitForChild("Modules")
 
+-- استدعاء الوحدات الأساسية
 local Config             = require(Modules:WaitForChild("Config"))
 local DataPersistence    = require(Modules:WaitForChild("DataPersistence"))
 local EliminationManager = require(Modules:WaitForChild("EliminationManager"))
--- الوحدات التالية يتم استدعاؤها عند الحاجة (مثل الروابط المستقبلية)
+
+-- إضافة سطر نظام حماية الهوية (IdentityProtector)
+local IdentityProtector  = require(Modules:WaitForChild("IdentityProtector"))
+
+-- وحدات مستقبلية (موقوفة حالياً)
 -- local RoleDistributor = require(Modules:WaitForChild("RoleDistributor"))
 -- local NewsSystem      = require(Modules:WaitForChild("NewsSystem"))
 
@@ -23,24 +28,23 @@ local IsGameRunning = false
 function GameManager.StartGameLoop()
     IsGameRunning = true
     
-    -- الخطوة الأولى: توزيع الأدوار عند بداية اللعبة
     print("🎲 جاري توزيع الأدوار على اللاعبين...")
-    -- RoleDistributor.AssignRoles() -- سيتم تفعيله في الخطوة القادمة
+    -- RoleDistributor.AssignRoles() 
     
     while IsGameRunning do
         CurrentRound = CurrentRound + 1
         print("🚩 بداية الجولة رقم: " .. CurrentRound)
 
-        -- الفصيلة 1: مرحلة الليل (Night Phase)
+        -- المرحلة 1: الليل
         GameManager.RunNightPhase()
 
-        -- الفصيلة 2: مرحلة الأخبار (News Phase)
+        -- المرحلة 2: الأخبار
         GameManager.RunNewsPhase()
 
-        -- الفصيلة 3: مرحلة النهار والتصويت (Day Phase)
+        -- المرحلة 3: النهار والتصويت
         GameManager.RunDayPhase()
         
-        -- فحص هل انتهت اللعبة؟
+        -- فحص شروط الفوز
         -- if EliminationManager.CheckWinConditions() then break end
     end
 end
@@ -48,48 +52,40 @@ end
 -- [4] تفاصيل مرحلة الليل
 function GameManager.RunNightPhase()
     print("🌙 بدأ الليل.. المافيا تتحرك الآن.")
-    -- إخطار اللاعبين عبر الـ UI (سيتم ربطه لاحقاً)
-    
     task.wait(Config.TimeSettings.NightDuration)
 end
 
 -- [5] تفاصيل مرحلة الأخبار
 function GameManager.RunNewsPhase()
     print("📰 جاري طباعة جريدة الصباح..")
-    -- NewsSystem.ShowResults() -- سيتم ربطه لاحقاً
-    
     task.wait(Config.TimeSettings.NewsDuration)
 end
 
 -- [6] تفاصيل مرحلة النهار
 function GameManager.RunDayPhase()
     print("☀️ بدأ النهار.. وقت النقاش والتصويت.")
-    -- تفعيل نظام التصويت
-    -- VotingSystem.StartVoting() 
-    
     task.wait(Config.TimeSettings.DayDuration)
 end
 
 -- [7] تشغيل السيرفر (Initialization)
 function GameManager.Initialize()
     print("⚙️ يتم الآن تهيئة سيرفر مافيا سيتي...")
-    
+
+    -- تفعيل نظام استقبال اللاعبين وحفظ بياناتهم وتأمين هوياتهم
+    IdentityProtector.Init() 
+    print("🛡️ تم تفعيل نظام حماية الهوية والأمان.")
+
     game.Players.PlayerAdded:Connect(function(player)
-        -- تحميل بيانات اللاعب من الخزنة
-        local data = DataPersistence.LoadData(player)
-        
-        -- إعداد الخصائص الأولية
+        -- إعداد الخصائص الأولية الإضافية التي يحتاجها المحرك
         player:SetAttribute("IsAlive", true)
-        player:SetAttribute("Level", data.Level or 1)
-        
-        print("Welcome " .. player.Name .. " to Mafia City!")
+        print("👋 أهلاً بك " .. player.Name .. " في مدينة المافيا!")
     end)
 end
 
--- البدء الفعلي
+-- البدء الفعلي للمحرك
 GameManager.Initialize()
 
--- ملاحظة: في اللعبة الفعلية، يتم استدعاء StartGameLoop عند اكتمال عدد اللاعبين
--- GameManager.StartGameLoop() 
+-- ملاحظة: StartGameLoop تُستدعى عادةً بعد اكتمال عدد اللاعبين
+-- task.spawn(GameManager.StartGameLoop) 
 
 return GameManager
