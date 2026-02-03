@@ -1,9 +1,9 @@
 -- Modules/RoundCycleManager.lua
--- نظام إدارة دورة الجولات (RoundCycleManager) - النسخة المحدثة والمربوطة بالكامل
+-- RoundCycleManager - النسخة النهائية المحدثة والمربوطة بنظام التصويت والإقصاء
 
 local RoundCycleManager = {}
 
--- [1] الخدمات والاعتمادات (Services and Dependencies)
+-- [1] Services and Dependencies
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
@@ -12,98 +12,101 @@ local LightingManager = require(Modules:WaitForChild("LightingManager"))
 local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
 local RoleManager = require(Modules:WaitForChild("RoleManager"))
 
--- إعدادات الوقت (Time Settings)
+-- Time Settings
 local NIGHT_DURATION = 30
 local DAY_DURATION = 60
 
--- [2] دالة مرحلة الليل (Night Phase Function)
+-- [2] Night Phase Function
 function RoundCycleManager.StartNightPhase()
     print("🌙 Night Phase has started...")
 
-    -- تغيير الإضاءة وتنبيه اللاعبين
+    -- Changing the lighting and notifying players
     LightingManager.SetNight(5)
     NotificationManager.BroadcastRoundEvent("Night has fallen on the city... The mafia is on the move now.", true)
 
     task.wait(NIGHT_DURATION)
 end
 
--- [3] دالة مرحلة النهار (Day Phase Function) - المحدثة بنظام الجلوس والتصويت والإقصاء
+-- [3] Day Phase Function - Updated with the seating, voting, and elimination system
 function RoundCycleManager.StartDayPhase()
     print("☀️ Day Phase has begun...")
 
-    -- 1. استدعاء نظام الجلوس لنقل اللاعبين للطاولة
+    -- 1. Calling the seating system to move players to the table
     local SeatingSystem = require(Modules:WaitForChild("SeatingSystem"))
     local alivePlayers = {}
 
-    -- جلب اللاعبين الأحياء فقط للمشاركة في طاولة النقاش
+    -- Bring only live players to the discussion table
     for _, p in ipairs(Players:GetPlayers()) do
         if p:GetAttribute("IsAlive") ~= false then
             table.insert(alivePlayers, p)
         end
     end
 
-    -- تنفيذ عملية توزيع المقاعد حول الطاولة
+    -- Perform seat allocation around the table
     SeatingSystem.ArrangePlayers(alivePlayers)
 
-    -- 2. تحويل الإضاءة للظهيرة
+    -- 2. Set the lighting to midday
     LightingManager.SetDay(5)
 
-    -- 3. تنبيه اللاعبين ببدء النقاش
+    -- 3. Notify players that the discussion is starting
     NotificationManager.BroadcastRoundEvent("The sun is up... Everyone is around the table now to discuss.", false)
 
-    -- بدء عملية التصويت
+    -- Start the voting process
     local VotingSystem = require(Modules:WaitForChild("VotingSystem"))
     VotingSystem.StartVoting()
 
-    -- 4. انتظار مدة النهار المحددة للنقاش والتصويت
+    -- 4. Wait for the specified daytime duration for discussion and voting
     task.wait(DAY_DURATION)
 
-    -- الحصول على نتيجة نظام التصويت (اسم الضحية)
+    -- [تم الربط هنا] - الحصول على نتيجة نظام التصويت وتفعيل الإقصاء الفعلي
     local victimName = VotingSystem.GetResult()
 
     if victimName then
-        -- تحويل النص (اسم الضحية) إلى كائن لاعب حقيقي (Player Object) للتحكم البرمجي
         local victimPlayer = Players:FindFirstChild(victimName)
 
         if victimPlayer then
-            print("⚖️ Player: " .. victimPlayer.Name .. " has been found to begin the elimination process.")
-            
-            -- سيتم استدعاء EliminationManager لاحقاً لتنفيذ القتل الفعلي
-            -- EliminationManager.Eliminate(victimPlayer)
-            
-            -- إرسال تنبيه عاجل للجميع بقرار المدينة
-            NotificationManager.BroadcastRoundEvent("The city has decided to eliminate " .. victimPlayer.Name .. "!", true)
+            -- Activate the "EliminationManager" to actually execute
+            local EliminationManager = require(Modules:WaitForChild("EliminationManager"))
+
+            print("⚖️ Execution is underway for: " .. victimPlayer.Name)
+
+            -- Execute the elimination and determine the result
+            local gameEnded = EliminationManager.EliminatePlayer(victimPlayer, "Vote")
+
+            if gameEnded then
+                print("🏁 Game over, stopping rounds.")
+                -- يمكن كسر حلقة اللعبة هنا إذا كانت هذه نهاية المباراة
+            end
         end
     else
-        -- في حال التعادل أو عدم وجود أصوات
-        print("⚖️ No victim found (tie or no votes).")
+        print("⚖️ No one found Victim (Tie or No Votes).")
     end
 
-    -- 5. تنظيف المقاعد وتحرير اللاعبين بعد انتهاء النهار
+    -- 5. Clean the seats and release the players after the day ends
     SeatingSystem.ClearSeats()
 end
 
--- [4] المحرك الرئيسي للجولة (Main Game Engine)
+-- [4] Main Game Engine
 function RoundCycleManager.RunGameLoop()
     print("🚀 Main Game Engine is running...")
 
     while true do
-        -- التحقق من توفر الحد الأدنى من اللاعبين (4 لاعبين)
+        -- Checking for minimum player availability (4 players)
         if #Players:GetPlayers() >= 4 then
-            -- توزيع الأدوار عشوائياً (Mafia, Judge, etc.)
+            -- Randomly assigning roles (Mafia, Judge, etc.)
             RoleManager.AssignRoles(Players:GetPlayers())
 
-            -- تعاقب مراحل اللعبة
+            -- Game phase sequence
             RoundCycleManager.StartNightPhase()
             RoundCycleManager.StartDayPhase()
 
-            -- EliminationManager.CheckWinCondition() سيتم إضافته هنا لاحقاً
+            -- يمكن إضافة EliminationManager.CheckWinCondition() هنا لاحقاً
         else
             task.wait(10)
             print("⏳ Waiting for the number to reach (4 players) to start the round...")
         end
 
-        task.wait(2) -- فاصل زمني بسيط بين الجولات
+        task.wait(2) -- Short time interval between rounds
     end
 end
 
