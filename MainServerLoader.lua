@@ -1,70 +1,71 @@
--- ServerScriptService/MainServerLoader.lua
--- Location: ServerScriptService
--- Role: The Ignition Key (File #27)
--- Summary: This script finalizes the backend by connecting all modules and engines.
+-- Location: ServerScriptService/MainServerLoader.lua
+-- الدور: المايسترو (The Master Maestro) - مفتاح تشغيل مدينة المافيا
+-- الملخص: يقوم بتنسيق تشغيل كافة المحركات (27 ملفاً) وضمان تزامن البيانات والأمان.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
--- [1] Safety Check: Waiting for the Modules Folder
+-- [1] فحص الأمان: التأكد من وجود مجلد الموديولات قبل البدء
 local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
 
 if not Modules then
-    warn("❌ CRITICAL ERROR: 'Modules' folder not found in ReplicatedStorage!")
-    return 
+    warn("❌ خطأ حرج: لم يتم العثور على مجلد Modules في ReplicatedStorage!")
+    return
 end
 
--- [2] Requirements from both codes
+-- [2] استدعاء الأنظمة الأساسية (Requirements)
+-- ملاحظة: يتم تحميل الأنظمة هنا لضمان جاهزيتها قبل التنفيذ
+local MainGameEngine    = require(Modules:WaitForChild("MainGameEngine"))
 local RoundCycleManager = require(Modules:WaitForChild("RoundCycleManager"))
-local LightingManager = require(Modules:WaitForChild("LightingManager"))
-local RoleUI = require(Modules:WaitForChild("RoleUI"))
-local MainGameEngine = require(Modules:WaitForChild("MainGameEngine"))
+local LightingManager   = require(Modules:WaitForChild("LightingManager"))
+local IdentityProtector = require(Modules:WaitForChild("IdentityProtector"))
+local RoleUI            = require(Modules:WaitForChild("RoleUI"))
 
--- [3] Initialization Logic (From Code 1)
 print("----------------------------------------------------------------")
-print("⚙️ Server systems are being prepared...")
+print("🏙️  MAFIA CITY: STARTING CENTRAL CORE & INITIALIZING...")
+print("----------------------------------------------------------------")
 
--- Set the default lighting (daylight)
-LightingManager.Init()
+-- [3] تهيئة الأنظمة الأولية (Initialization)
+-- يتم تشغيل الإضاءة ونظام حماية البيانات فوراً لضمان الخصوصية والجو العام
+LightingManager.Init() 
+IdentityProtector.Init()
+print("⚙️  Initial Systems (Lighting & Security) are prepared.")
 
--- Activate the game loop in a separate thread
+-- [4] تشغيل المحرك الرئيسي (The Core Execution)
+-- نستخدم task.spawn و pcall لضمان استقرار السيرفر وعدم توقفه
 task.spawn(function()
-    print("🎮 The Rounds Engine has been successfully launched.")
-    RoundCycleManager.RunGameLoop()
-end)
-
--- [4] Main Engine Initialization (From Code 2)
-print("----------------------------------------------------------------")
-print("🏙️  MAFIA CITY: BACKEND INITIALIZATION STARTING...")
-print("----------------------------------------------------------------")
-
-local function StartServer()
     local success, err = pcall(function()
-        -- Starting the main engine
-        MainGameEngine.Init()
+        -- تشغيل محرك اللعبة الرئيسي
+        MainGameEngine.Init() 
+        
+        -- تشغيل محرك الجولات في خيط منفصل (Thread)
+        task.spawn(function()
+            print("🎮 Round Cycle Engine is launching...")
+            RoundCycleManager.RunGameLoop()
+        end)
     end)
 
     if success then
-        print("✅ SUCCESS: Mafia City Backend is now 100% Live!")
-
-        -- Implementing the Godfather role display upon player entry (for testing)
-        game.Players.PlayerAdded:Connect(function(player)
-            -- Wait a brief moment for UI to load
-            task.wait(2)
-            RoleUI.ShowRole(player, "Godfather", Color3.fromRGB(255, 0, 0))
-        end)
-
-        print("🎮 Game State: Waiting for players to start Intermission...")
+        print("✅ SUCCESS: Mafia City Backend is Live and Synced!")
     else
-        warn("⚠️ FAILED to initialize MainGameEngine: " .. tostring(err))
+        warn("⚠️ CRITICAL ERROR: FAILED to start Core Engine: " .. tostring(err))
     end
-end
+end)
 
--- Start the execution flow
-StartServer()
+-- [5] نظام اختبار الواجهات (Testing Integration)
+-- يتم عرض بطاقة "العراب" فور دخول أي لاعب للتأكد من عمل نظام RoleUI
+game.Players.PlayerAdded:Connect(function(player)
+    print("👋 Player Joined: " .. player.Name .. " | Applying initial test data.")
+    
+    -- انتظار بسيط لضمان تحميل واجهة اللاعب (GUI)
+    task.wait(2)
+    
+    -- اختبار نظام عرض الأدوار (Godfather باللون الأحمر)
+    RoleUI.ShowRole(player, "Godfather", Color3.fromRGB(255, 0, 0))
+end)
 
--- [5] Final Structure Check (Verification Summary)
+-- [6] ملخص التحقق النهائي
 print("----------------------------------------------------------------")
-print("🏆 CONGRATULATIONS! THE FRAMEWORK IS COMPLETE.")
-print("🚀 Ready for Roblox Studio deployment.")
+print("🏆 CONGRATULATIONS! THE CENTRAL MAESTRO IS READY.")
+print("🚀 Backend is 100% active. Waiting for players to start match.")
 print("----------------------------------------------------------------")
