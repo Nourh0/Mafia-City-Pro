@@ -1,5 +1,5 @@
 -- Modules/RoundCycleManager.lua
--- نظام إدارة دورة الجولات (RoundCycleManager) - النسخة المحدثة والمربوطة بنظام التصويت والجلوس
+-- نظام إدارة دورة الجولات (RoundCycleManager) - النسخة المحدثة والمربوطة بالكامل
 
 local RoundCycleManager = {}
 
@@ -12,11 +12,11 @@ local LightingManager = require(Modules:WaitForChild("LightingManager"))
 local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
 local RoleManager = require(Modules:WaitForChild("RoleManager"))
 
--- إعدادات الوقت
+-- إعدادات الوقت (Time Settings)
 local NIGHT_DURATION = 30
 local DAY_DURATION = 60
 
--- [2] دالة مرحلة الليل (Night Phase)
+-- [2] دالة مرحلة الليل (Night Phase Function)
 function RoundCycleManager.StartNightPhase()
     print("🌙 Night Phase has started...")
 
@@ -27,7 +27,7 @@ function RoundCycleManager.StartNightPhase()
     task.wait(NIGHT_DURATION)
 end
 
--- [3] دالة تشغيل مرحلة النهار (Day Phase) - المحدثة بالربط مع نظام الجلوس والتصويت
+-- [3] دالة مرحلة النهار (Day Phase Function) - المحدثة بنظام الجلوس والتصويت والإقصاء
 function RoundCycleManager.StartDayPhase()
     print("☀️ Day Phase has begun...")
 
@@ -42,7 +42,7 @@ function RoundCycleManager.StartDayPhase()
         end
     end
 
-    -- تنفيذ عملية الجلوس الرياضية حول الطاولة
+    -- تنفيذ عملية توزيع المقاعد حول الطاولة
     SeatingSystem.ArrangePlayers(alivePlayers)
 
     -- 2. تحويل الإضاءة للظهيرة
@@ -51,18 +51,32 @@ function RoundCycleManager.StartDayPhase()
     -- 3. تنبيه اللاعبين ببدء النقاش
     NotificationManager.BroadcastRoundEvent("The sun is up... Everyone is around the table now to discuss.", false)
 
-    -- [إضافة] بدء عملية التصويت
+    -- بدء عملية التصويت
     local VotingSystem = require(Modules:WaitForChild("VotingSystem"))
     VotingSystem.StartVoting()
 
     -- 4. انتظار مدة النهار المحددة للنقاش والتصويت
     task.wait(DAY_DURATION)
 
-    -- [إضافة] الحصول على النتيجة وتنفيذ الإقصاء
+    -- الحصول على نتيجة نظام التصويت (اسم الضحية)
     local victimName = VotingSystem.GetResult()
+
     if victimName then
-        -- هنا يتم استدعاء EliminationManager لحذف اللاعب (سيتم ربطه لاحقاً)
-        print("The city has decided to eliminate: " .. victimName)
+        -- تحويل النص (اسم الضحية) إلى كائن لاعب حقيقي (Player Object) للتحكم البرمجي
+        local victimPlayer = Players:FindFirstChild(victimName)
+
+        if victimPlayer then
+            print("⚖️ Player: " .. victimPlayer.Name .. " has been found to begin the elimination process.")
+            
+            -- سيتم استدعاء EliminationManager لاحقاً لتنفيذ القتل الفعلي
+            -- EliminationManager.Eliminate(victimPlayer)
+            
+            -- إرسال تنبيه عاجل للجميع بقرار المدينة
+            NotificationManager.BroadcastRoundEvent("The city has decided to eliminate " .. victimPlayer.Name .. "!", true)
+        end
+    else
+        -- في حال التعادل أو عدم وجود أصوات
+        print("⚖️ No victim found (tie or no votes).")
     end
 
     -- 5. تنظيف المقاعد وتحرير اللاعبين بعد انتهاء النهار
@@ -83,7 +97,7 @@ function RoundCycleManager.RunGameLoop()
             RoundCycleManager.StartNightPhase()
             RoundCycleManager.StartDayPhase()
 
-            -- يمكن إضافة EliminationManager.CheckWinCondition() هنا لاحقاً
+            -- EliminationManager.CheckWinCondition() سيتم إضافته هنا لاحقاً
         else
             task.wait(10)
             print("⏳ Waiting for the number to reach (4 players) to start the round...")
