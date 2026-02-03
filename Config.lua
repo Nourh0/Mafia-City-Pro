@@ -1,26 +1,35 @@
-[
-  {
-    "status": "success",
-    "file_updated": "Modules/Config.lua",
-    "summary": "تم تحديث ملف الإعدادات المركزي بنجاح. هذا الملف هو 'المحرك' الذي يحدد توازنات اللعبة مثل قوة التصويت ومدد الجولات.",
-    "analysis": {
-      "time_settings": {
-        "night_duration": 35,
-        "day_duration": 60,
-        "news_duration": 12
-      },
-      "voting_mechanics": {
-        "judge_weight": 2,
-        "self_vote": false,
-        "veto_enabled": true
-      },
-      "role_definitions": "تم تسجيل 7 أدوار أساسية بأسماء ثنائية اللغة (عربي/إنجليزي)."
-    },
-    "integration_note": "تم نقل الملف إلى مجلد Modules لضمان سهولة الوصول إليه من قبل RoleDistributor و NewsSystem عبر require(script.Parent.Config).",
-    "next_step": {
-      "action": "تفعيل نظام التصويت",
-      "file": "Modules/VotingSystem.lua",
-      "instruction": "نحن الآن بحاجة لبرمجة VotingSystem.lua ليعالج الأصوات بناءً على إعدادات القاضي (JudgeVoteWeight) التي وضعناها للتو."
-    }
-  }
-]
+-- Modules/Config.lua
+-- هذا الملف هو المحرك المركزي لتوازنات اللعبة
+
+local Config = {}
+
+-- [1] إعدادات الأوقات (بالثواني)
+Config.TimeSettings = {
+    NightDuration = 35,   -- مدة الليل
+    DayDuration = 60,     -- مدة النهار
+    NewsDuration = 12     -- مدة عرض الأخبار (الجريدة)
+}
+
+-- [2] ميكانيكيات ونظام التصويت
+Config.VotingMechanics = {
+    JudgeVoteWeight = 2,   -- قوة صوت القاضي (صوته يحسب عن اثنين)
+    AllowSelfVote = false, -- منع اللاعب من التصويت لنفسه
+    VetoEnabled = true     -- تفعيل خاصية النقض (Veto)
+}
+
+-- [3] تعريف الأدوار الأساسية (7 أدوار ثنائية اللغة)
+Config.Roles = {
+    {Id = 1, NameAr = "مواطن", NameEn = "Villager"},
+    {Id = 2, NameAr = "مافيا", NameEn = "Mafia"},
+    {Id = 3, NameAr = "طبيب", NameEn = "Doctor"},
+    {Id = 4, NameAr = "محقق", NameEn = "Detective"},
+    {Id = 5, NameAr = "قاضي", NameEn = "Judge"},
+    {Id = 6, NameAr = "حارس شخصي", NameEn = "Bodyguard"},
+    {Id = 7, NameAr = "عراب", NameEn = "Godfather"}
+}
+
+-- [4] ملاحظات برمجية للاستخدام:
+-- لاستدعاء هذا الملف من سكريبتات أخرى استخدم السطر التالي:
+-- local Config = require(game:GetService("ReplicatedStorage").Modules.Config)
+
+return Config
