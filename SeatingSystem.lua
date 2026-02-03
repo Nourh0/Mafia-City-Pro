@@ -1,77 +1,49 @@
--- Modules/RoundCycleManager.lua
--- نظام إدارة دورة الجولات (النسخة المحدثة بالربط مع نظام الجلوس)
+-- Modules/SeatingSystem.lua
+-- نظام الجلوس الدائري (SeatingSystem) - النسخة المصححة والمحسنة
 
-local RoundCycleManager = {}
+local SeatingSystem = {}
 
--- [1] الخدمات والاعتمادات
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
+-- [1] الإعدادات الفنية (Technical Details)
+local CENTER_POINT = Vector3.new(0, 5, 0) -- نقطة مركز طاولة النقاش
+local Y_OFFSET = 3 -- ارتفاع اللاعب عن الأرض عند الجلوس
 
-local Modules = ReplicatedStorage:WaitForChild("Modules")
-local LightingManager = require(Modules:WaitForChild("LightingManager"))
-local NotificationManager = require(Modules:WaitForChild("NotificationManager"))
-local RoleManager = require(Modules:WaitForChild("RoleManager"))
+-- [2] دالة حساب التوزيع الدائري (Mathematical Logic)
+function SeatingSystem.ArrangePlayers(players)
+    local totalPlayers = #players
+    if totalPlayers == 0 then return end
 
--- إعدادات الوقت
-local NIGHT_DURATION = 30
-local DAY_DURATION = 60
-
--- [2] دالة مرحلة الليل
-function RoundCycleManager.StartNightPhase()
-    print("🌙 بدأت مرحلة الليل...")
-    LightingManager.SetNight(5)
-    NotificationManager.BroadcastRoundEvent("حل الليل.. المافيا تتحرك الآن.", true)
+    -- التوسيع الديناميكي للقطر بناءً على عدد اللاعبين
+    local radius = totalPlayers * 2 
     
-    task.wait(NIGHT_DURATION)
-end
+    print("📐 جاري تنظيم الجلسة لـ " .. totalPlayers .. " لاعب. القطر المستخدم: " .. radius)
 
--- [3] دالة تشغيل مرحلة النهار (المحدثة والمنقحة)
-function RoundCycleManager.StartDayPhase()
-    print("☀️ بدأت مرحلة النهار...")
-    
-    -- 1. استدعاء نظام الجلوس لنقل اللاعبين للطاولة
-    local SeatingSystem = require(Modules:WaitForChild("SeatingSystem"))
-    local alivePlayers = {}
-    
-    -- جلب اللاعبين الأحياء فقط للجلوس حول الطاولة
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p:GetAttribute("IsAlive") ~= false then
-            table.insert(alivePlayers, p)
+    for i, player in ipairs(players) do
+        -- حساب الزاوية لكل لاعب (تقسيم 360 درجة بالتساوي)
+        local angle = (i - 1) * (2 * math.pi / totalPlayers)
+        
+        -- [تصحيح الرياضيات]: استخدام math.cos و math.sin مباشرة
+        local x = CENTER_POINT.X + math.cos(angle) * radius
+        local z = CENTER_POINT.Z + math.sin(angle) * radius
+        local position = Vector3.new(x, CENTER_POINT.Y, z)
+
+        -- تطبيق الوضعية على شخصية اللاعب
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local hrp = character.HumanoidRootPart
+            -- نقل اللاعب وتوجيه وجهه مباشرة نحو مركز الطاولة (LookAt)
+            hrp.CFrame = CFrame.lookAt(position + Vector3.new(0, Y_OFFSET, 0), CENTER_POINT)
         end
-    end
-    
-    -- تنفيذ عملية الجلوس الرياضية
-    SeatingSystem.ArrangePlayers(alivePlayers)
-
-    -- 2. تحويل الإضاءة للظهيرة
-    LightingManager.SetDay(5)
-    
-    -- 3. تنبيه اللاعبين ببدء النقاش
-    NotificationManager.BroadcastRoundEvent("أشرقت الشمس.. الجميع حول الطاولة الآن للنقاش.", false)
-    
-    -- 4. انتظار مدة النهار
-    task.wait(DAY_DURATION)
-    
-    -- 5. تنظيف الكراسي بعد انتهاء النهار
-    SeatingSystem.ClearSeats()
-end
-
--- [4] المحرك الرئيسي للجولات
-function RoundCycleManager.RunGameLoop()
-    while true do
-        if #Players:GetPlayers() >= 4 then
-            -- توزيع الأدوار
-            RoleManager.AssignRoles(Players:GetPlayers())
-            
-            -- تعاقب المراحل
-            RoundCycleManager.StartNightPhase()
-            RoundCycleManager.StartDayPhase()
-        else
-            task.wait(10)
-            print("⏳ في انتظار اكتمال العدد...")
-        end
-        task.wait(2)
+        
+        -- ميزة إضافية: تعيين سمة نوع الكرسي (Royal أو Basic) بناءً على بيانات المتجر
+        local chairTier = player:GetAttribute("ChairTier") or "Basic"
+        print("💺 اللاعب " .. player.Name .. " يجلس بكرسي من فئة: " .. chairTier)
     end
 end
 
-return RoundCycleManager
+-- [3] دالة إخلاء المقاعد (Cleanup)
+function SeatingSystem.ClearSeats()
+    print("🧹 انتهى النقاش.. جاري تحرير اللاعبين من أماكنهم.")
+    -- يمكن إضافة كود هنا لإعادة اللاعبين لموقع عشوائي في المدينة
+end
+
+return SeatingSystem
