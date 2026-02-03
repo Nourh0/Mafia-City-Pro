@@ -8,41 +8,47 @@ local IdentityProtector = {}
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- [2] استدعاء موديول حفظ البيانات (الملف رقم 19)
+-- [2] استدعاء موديول حفظ البيانات
+-- ملاحظة: يفترض وجود ملف DataPersistence في نفس مجلد Modules
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local DataPersistence = require(Modules:WaitForChild("DataPersistence"))
 
 -- [3] دالة تشفير الهوية الابتدائية (Role Encryption)
--- يتم استدعاؤها عند بداية الجولة لإخفاء الأدوار عن المخربين
+-- تمنع "الهكرز" من معرفة الأدوار عبر فحص خصائص اللاعب
 function IdentityProtector.MaskPlayerIdentity(player)
-    player:SetAttribute("Role", "Hidden") -- تشفير برمجي لمنع كشف الدور
+    player:SetAttribute("Role", "Hidden") -- تشفير برمجي
     player:SetAttribute("IsMasked", true)
     print("🔒 تم تفعيل القناع البرمجي للاعب: " .. player.Name)
 end
 
 -- [4] إرسال تعليمات آمنة (Secure Messaging)
--- تضمن وصول الرسائل للمافيا أو القاضي دون ظهورها في السجلات العامة
+-- ترسل رسائل خاصة للأدوار (مثل المافيا) دون أن تظهر للجميع
 function IdentityProtector.SendSecureInstruction(player, instruction)
-    -- يتم استخدام RemoteEvent خاص هنا لإرسال التوجيهات لواجهة اللاعب فقط
-    local SecureEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("SecureNotify")
-    SecureEvent:FireClient(player, instruction)
-    -- ملاحظة: لا يتم طباعة المحتوى في السيرفر لزيادة الأمان
+    -- تأكد من وجود مجلد Events و RemoteEvent باسم SecureNotify في ReplicatedStorage
+    local Events = ReplicatedStorage:FindFirstChild("Events")
+    if Events then
+        local SecureEvent = Events:FindFirstChild("SecureNotify")
+        if SecureEvent then
+            SecureEvent:FireClient(player, instruction)
+        end
+    end
 end
 
 -- [5] استقبال اللاعب وتأمين بياناته (Automated Load)
 function IdentityProtector.OnPlayerJoined(player)
     print("🛡️ حارس البوابة: يتم الآن استقبال " .. player.Name)
     
-    -- تحميل البيانات من الخزنة (DataPersistence)
+    -- تحميل البيانات من الخزنة عبر موديول DataPersistence
     local savedData = DataPersistence.LoadData(player)
     
     if savedData then
-        -- تطبيق البيانات على Attributes لسهولة الوصول إليها
+        -- نقل البيانات إلى Attributes لسهولة قراءتها من بقية الأنظمة
         player:SetAttribute("Level", savedData.Level or 1)
         player:SetAttribute("XP", savedData.XP or 0)
         player:SetAttribute("Coins", savedData.Coins or 0)
         player:SetAttribute("SubStatus", savedData.SubStatus or "None")
-        player:SetAttribute("Role", "Hidden") -- تأمين الدور افتراضياً
+        player:SetAttribute("Role", "Hidden") -- حماية الدور افتراضياً
+        player:SetAttribute("IsAlive", true)  -- تعيين الحالة كحي عند الدخول
     end
 end
 
@@ -50,28 +56,39 @@ end
 function IdentityProtector.OnPlayerLeaving(player)
     print("🚪 حارس البوابة: تأمين خروج " .. player.Name)
     
-    -- جمع البيانات الحالية من الـ Attributes قبل خروج اللاعب
+    -- جمع القيم الحالية من Attributes لحفظها
     local dataToSave = {
-        Level = player:GetAttribute("Level"),
-        XP = player:GetAttribute("XP"),
-        Coins = player:GetAttribute("Coins"),
-        SubStatus = player:GetAttribute("SubStatus")
+        Level = player:GetAttribute("Level") or 1,
+        XP = player:GetAttribute("XP") or 0,
+        Coins = player:GetAttribute("Coins") or 0,
+        SubStatus = player:GetAttribute("SubStatus") or "None"
     }
     
-    -- حفظ البيانات فوراً في قاعدة البيانات
+    -- استدعاء دالة الحفظ
     local success = DataPersistence.SaveData(player, dataToSave)
     
     if success then
-        print("💾 تم تأمين وحفظ بيانات " .. player.Name .. " بنجاح.")
+        print("💾 تم حفظ بيانات " .. player.Name .. " بنجاح قبل المغادرة.")
     else
-        warn("⚠️ تحذير: فشل حفظ بيانات " .. player.Name .. " أثناء الخروج!")
+        warn("⚠️ خطأ: تعذر حفظ بيانات " .. player.Name)
     end
 end
 
 -- [7] الربط بالأحداث (Initialization)
+-- هذه الدالة يتم استدعاؤها مرة واحدة عند تشغيل السيرفر
 function IdentityProtector.Init()
+    -- ربط أحداث الدخول والخروج بالوظائف البرمجية
     Players.PlayerAdded:Connect(IdentityProtector.OnPlayerJoined)
     Players.PlayerRemoving:Connect(IdentityProtector.OnPlayerLeaving)
+    
+    -- معالجة اللاعبين الموجودين أصلاً (في حال إعادة تشغيل السكريبت)
+    for _, player in ipairs(Players:GetPlayers()) do
+        task.spawn(function()
+            IdentityProtector.OnPlayerJoined(player)
+        end)
+    end
+    
+    print("✅ تم تفعيل نظام IdentityProtector بنجاح.")
 end
 
 return IdentityProtector
