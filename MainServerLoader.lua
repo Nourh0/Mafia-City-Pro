@@ -1,44 +1,46 @@
 -- Location: ServerScriptService/MainServerLoader.lua
--- الدور: المايسترو (The Master Maestro) - مفتاح تشغيل مدينة المافيا
--- الملخص: يقوم بتنسيق تشغيل كافة المحركات (27 ملفاً) وضمان تزامن البيانات والأمان.
+-- Role: The Master Maestro - Key to activating Mafia City
+-- Summary: Coordinates the operation of all engines (27 files) and ensures data synchronization and security.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
--- [1] فحص الأمان: التأكد من وجود مجلد الموديولات قبل البدء
+-- [1] Security Check: Ensure the Modules folder exists before starting
 local Modules = ReplicatedStorage:WaitForChild("Modules", 10)
 
 if not Modules then
-    warn("❌ خطأ حرج: لم يتم العثور على مجلد Modules في ReplicatedStorage!")
+    warn("❌ Critical error: Modules folder not found in ReplicatedStorage!")
     return
 end
 
--- [2] استدعاء الأنظمة الأساسية (Requirements)
--- ملاحظة: يتم تحميل الأنظمة هنا لضمان جاهزيتها قبل التنفيذ
-local MainGameEngine    = require(Modules:WaitForChild("MainGameEngine"))
+-- [2] Invoking the Requirements
+-- Note: The requirements are loaded here to ensure they are ready before execution
+local MainGameEngine = require(Modules:WaitForChild("MainGameEngine"))
 local RoundCycleManager = require(Modules:WaitForChild("RoundCycleManager"))
-local LightingManager   = require(Modules:WaitForChild("LightingManager"))
+local LightingManager = require(Modules:WaitForChild("LightingManager"))
 local IdentityProtector = require(Modules:WaitForChild("IdentityProtector"))
-local RoleUI            = require(Modules:WaitForChild("RoleUI"))
+local RoleUI = require(Modules:WaitForChild("RoleUI"))
+local MafiaChat = require(Modules:WaitForChild("MafiaChat")) -- تم الربط هنا
 
 print("----------------------------------------------------------------")
-print("🏙️  MAFIA CITY: STARTING CENTRAL CORE & INITIALIZING...")
+print("🏙️ MAFIA CITY: STARTING CENTRAL CORE & INITIALIZING...")
 print("----------------------------------------------------------------")
 
--- [3] تهيئة الأنظمة الأولية (Initialization)
--- يتم تشغيل الإضاءة ونظام حماية البيانات فوراً لضمان الخصوصية والجو العام
-LightingManager.Init() 
+-- [3] Initialization
+-- Lighting and data protection systems are activated immediately to ensure privacy and a secure environment.
+LightingManager.Init()
 IdentityProtector.Init()
-print("⚙️  Initial Systems (Lighting & Security) are prepared.")
+MafiaChat.Init() -- Launching the chat system (تم الربط هنا)
+print("⚙️ Initial Systems (Lighting & Security) are prepared.")
 
--- [4] تشغيل المحرك الرئيسي (The Core Execution)
--- نستخدم task.spawn و pcall لضمان استقرار السيرفر وعدم توقفه
+-- [4] Core Execution
+-- We use task.spawn and pcall to ensure server stability and prevent crashes.
 task.spawn(function()
     local success, err = pcall(function()
-        -- تشغيل محرك اللعبة الرئيسي
+        -- Launching the main game engine
         MainGameEngine.Init() 
-        
-        -- تشغيل محرك الجولات في خيط منفصل (Thread)
+
+        -- Launching the Round Cycle Engine in a separate thread
         task.spawn(function()
             print("🎮 Round Cycle Engine is launching...")
             RoundCycleManager.RunGameLoop()
@@ -52,8 +54,8 @@ task.spawn(function()
     end
 end)
 
--- [5] نظام اختبار الواجهات (Testing Integration)
--- يتم عرض بطاقة "العراب" فور دخول أي لاعب للتأكد من عمل نظام RoleUI
+-- [5] Testing Integration System
+-- The "Godfather" card is displayed immediately upon a player joining to verify the RoleUI system is working
 game.Players.PlayerAdded:Connect(function(player)
     print("👋 Player Joined: " .. player.Name .. " | Applying initial test data.")
     
